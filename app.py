@@ -1,6 +1,6 @@
 """
-Motor Fault Detection Flask Application - Phase 2: Fixed Hybrid Processing
-Supports both single file and batch processing with proper error handling.
+Motor Fault Detection Flask Application - Batch Processing Only
+Handles both single and multiple files through the same batch pipeline.
 """
 
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, send_from_directory, jsonify
@@ -16,23 +16,22 @@ from io import BytesIO
 
 from backend.spectrograms import generate_all_spectrograms
 from backend.features import extract_all_features
-from backend.utils import save_uploaded_file, save_uploaded_files, clear_session_files, get_upload_path, create_zip_download
+from backend.utils import save_uploaded_files, clear_session_files, get_upload_path, create_zip_download
 
 app = Flask(__name__)
-app.secret_key = 'motor_fault_detection_secret_key_2025_phase2'
+app.secret_key = 'motor_fault_detection_batch_only_2025'
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 RESULTS_FOLDER = 'results'
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'flac', 'm4a', 'ogg'}
 MAX_FILES_PER_SESSION = 100
-MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB per file
 
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-# Global batch status tracking with thread lock
+# Global batch status tracking
 batch_status = {}
 batch_lock = threading.Lock()
 
@@ -42,65 +41,35 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    """Main upload page supporting both single and multiple files."""
+    """Main upload page for batch processing."""
     return render_template('index.html', max_files=MAX_FILES_PER_SESSION)
 
 @app.route('/upload', methods=['POST'])
-def upload_file():
-    """Handle both single and multiple file uploads."""
-    # Check if it's multiple files or single file
-    files = request.files.getlist('files')
-    single_file = request.files.get('file')
+def upload_files():
+    """Handle file uploads - both single and multiple through batch processing."""
+    # Get files from both possible input names
+    files = request.files.getlist('files')  # Multiple files
+    single_file = request.files.get('file')  # Single file
     
-    # Handle single file upload (backward compatibility)
+    # Combine both into one list
+    all_files = []
     if single_file and single_file.filename != '':
-        return handle_single_file_upload(single_file)
+        all_files.append(single_file)
+    if files:
+        all_files.extend([f for f in files if f and f.filename != ''])
     
-    # Handle multiple files upload
-    elif files and any(f.filename != '' for f in files):
-        return handle_batch_upload(files)
+    # Remove duplicates and filter valid files
+    valid_files = []
+    seen_names = set()
     
-    else:
-        return render_template('index.html', 
-                             error="No files selected.", 
-                             max_files=MAX_FILES_PER_SESSION)
-
-def handle_single_file_upload(file):
-    """Handle single file upload (original functionality)."""
-    if not allowed_file(file.filename):
-        return render_template('index.html', 
-                             error="Invalid file type. Please upload WAV, MP3, FLAC, M4A, or OGG files.",
-                             max_files=MAX_FILES_PER_SESSION)
-    
-    try:
-        # Generate unique session ID
-        session_id = str(uuid.uuid4())
-        session['session_id'] = session_id
-        session['processing_mode'] = 'single'
-        
-        # Save uploaded file
-        file_info = save_uploaded_file(file, session_id)
-        
-        # Store both original and saved filenames
-        session['original_filename'] = file_info['original_name']
-        session['saved_filename'] = file_info['saved_name']
-        
-        return redirect(url_for('results'))
-        
-    except Exception as e:
-        app.logger.error(f"Single file upload error: {str(e)}")
-        return render_template('index.html', 
-                             error="Error uploading file. Please try again.",
-                             max_files=MAX_FILES_PER_SESSION)
-
-def handle_batch_upload(files):
-    """Handle multiple files upload."""
-    # Filter valid files
-    valid_files = [f for f in files if f and f.filename != '' and allowed_file(f.filename)]
+    for file in all_files:
+        if file and file.filename != '' and file.filename not in seen_names and allowed_file(file.filename):
+            valid_files.append(file)
+            seen_names.add(file.filename)
     
     if not valid_files:
         return render_template('index.html', 
-                             error="No valid audio files found.",
+                             error="No valid audio files found. Please upload WAV, MP3, FLAC, M4A, or OGG files.",
                              max_files=MAX_FILES_PER_SESSION)
     
     if len(valid_files) > MAX_FILES_PER_SESSION:
@@ -112,15 +81,16 @@ def handle_batch_upload(files):
         # Generate unique session ID
         session_id = str(uuid.uuid4())
         session['session_id'] = session_id
-        session['processing_mode'] = 'batch'
         session['upload_time'] = datetime.now().isoformat()
+        session['total_files'] = len(valid_files)
+        
+        print(f"Processing {len(valid_files)} files in session {session_id}")
         
         # Save uploaded files
         saved_files = save_uploaded_files(valid_files, session_id)
-        session['files'] = saved_files
-        session['total_files'] = len(saved_files)
+        print(f"Saved files: {[f['original_name'] for f in saved_files]}")
         
-        # Initialize batch status with thread safety
+        # Initialize batch status
         with batch_lock:
             batch_status[session_id] = {
                 'status': 'processing',
@@ -140,30 +110,38 @@ def handle_batch_upload(files):
         return redirect(url_for('batch_progress'))
         
     except Exception as e:
-        app.logger.error(f"Batch upload error: {str(e)}")
+        app.logger.error(f"Upload error: {str(e)}")
+        print(f"Upload error: {str(e)}")
         return render_template('index.html', 
-                             error="Error uploading files. Please try again.",
+                             error=f"Error uploading files: {str(e)}",
                              max_files=MAX_FILES_PER_SESSION)
 
 def process_batch_files(session_id, file_list):
-    """Process batch files in background thread."""
+    """Process all files in batch mode."""
     try:
+        print(f"Starting batch processing for session {session_id}")
         results_dir = os.path.join('results', session_id)
         os.makedirs(results_dir, exist_ok=True)
         
         for i, file_info in enumerate(file_list):
+            print(f"Processing file {i+1}/{len(file_list)}: {file_info['original_name']}")
+            
+            # Update status
             with batch_lock:
                 if session_id not in batch_status:
-                    break  # Session was cleared
+                    print(f"Session {session_id} was cleared, stopping processing")
+                    break
                 
                 batch_status[session_id]['current_file'] = i + 1
                 batch_status[session_id]['current_filename'] = file_info['original_name']
             
             try:
-                # Process single file
+                # Get file paths
                 original_filename = file_info['original_name']
                 saved_filename = file_info['saved_name']
                 audio_path = get_upload_path(saved_filename, session_id)
+                
+                print(f"Audio path: {audio_path}")
                 
                 if not os.path.exists(audio_path):
                     raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -173,10 +151,15 @@ def process_batch_files(session_id, file_list):
                 file_results_dir = os.path.join(results_dir, file_id)
                 os.makedirs(file_results_dir, exist_ok=True)
                 
+                print(f"Results directory: {file_results_dir}")
+                
                 # Generate spectrograms
-                generate_all_spectrograms(audio_path, session_id, file_id)
+                print(f"Generating spectrograms for {original_filename}")
+                spectrograms = generate_all_spectrograms(audio_path, session_id, file_id)
+                print(f"Generated {len(spectrograms)} spectrograms")
                 
                 # Extract features
+                print(f"Extracting features for {original_filename}")
                 features_df = extract_all_features(audio_path)
                 features_dict = features_df.to_dict('records')[0]
                 
@@ -190,19 +173,24 @@ def process_batch_files(session_id, file_list):
                 with open(features_path, 'w') as f:
                     json.dump(features_dict, f, indent=2, default=str)
                 
+                print(f"Saved features to {features_path}")
+                
                 # Update completed files
                 with batch_lock:
                     if session_id in batch_status:
                         batch_status[session_id]['completed_files'].append(original_filename)
                 
+                print(f"Completed processing {original_filename}")
+                
             except Exception as e:
                 error_msg = f"Error processing {file_info['original_name']}: {str(e)}"
+                print(error_msg)
+                
                 with batch_lock:
                     if session_id in batch_status:
                         batch_status[session_id]['errors'].append(error_msg)
-                app.logger.error(error_msg)
             
-            # Small delay to prevent overwhelming
+            # Small delay
             time.sleep(0.1)
         
         # Mark as completed
@@ -210,18 +198,21 @@ def process_batch_files(session_id, file_list):
             if session_id in batch_status:
                 batch_status[session_id]['status'] = 'completed'
                 batch_status[session_id]['end_time'] = time.time()
+                print(f"Batch processing completed for session {session_id}")
         
     except Exception as e:
+        error_msg = f"Batch processing error: {str(e)}"
+        print(error_msg)
+        
         with batch_lock:
             if session_id in batch_status:
                 batch_status[session_id]['status'] = 'error'
                 batch_status[session_id]['error'] = str(e)
-        app.logger.error(f"Batch processing error: {str(e)}")
 
 @app.route('/batch_progress')
 def batch_progress():
     """Show batch processing progress."""
-    if 'session_id' not in session or session.get('processing_mode') != 'batch':
+    if 'session_id' not in session:
         return redirect(url_for('index'))
     
     session_id = session['session_id']
@@ -236,7 +227,7 @@ def batch_progress():
     
     return render_template('batch_progress.html', 
                          status=status,
-                         files=session.get('files', []))
+                         files=session.get('file_names', []))
 
 @app.route('/batch_status')
 def get_batch_status():
@@ -268,74 +259,10 @@ def get_batch_status():
 
 @app.route('/results')
 def results():
-    """Display results for both single and batch processing."""
+    """Display batch results."""
     if 'session_id' not in session:
         return redirect(url_for('index'))
     
-    session_id = session['session_id']
-    processing_mode = session.get('processing_mode', 'single')
-    
-    if processing_mode == 'batch':
-        return handle_batch_results()
-    else:
-        return handle_single_results()
-
-def handle_single_results():
-    """Handle single file results (original functionality)."""
-    session_id = session['session_id']
-    saved_filename = session.get('saved_filename')
-    original_filename = session.get('original_filename', saved_filename)
-    
-    if not saved_filename:
-        return redirect(url_for('index'))
-    
-    try:
-        # Get file path using saved filename
-        audio_path = get_upload_path(saved_filename, session_id)
-        
-        if not os.path.exists(audio_path):
-            return redirect(url_for('index'))
-        
-        # Generate spectrograms (single file mode)
-        spectrogram_paths = generate_all_spectrograms(audio_path, session_id)
-        
-        # Convert file paths to web URLs for each spectrogram
-        for spec_type in spectrogram_paths:
-            if 'path' in spectrogram_paths[spec_type]:
-                filename_only = os.path.basename(spectrogram_paths[spec_type]['path'])
-                spectrogram_paths[spec_type]['path'] = url_for('serve_result_file', 
-                                                              session_id=session_id, 
-                                                              filename=filename_only)
-        
-        # Extract features
-        features_df = extract_all_features(audio_path)
-        
-        # Store features in session for download
-        features_dict = features_df.to_dict('records')[0]
-        features_dict['original_filename'] = original_filename
-        session['features'] = features_dict
-        
-        # Convert features to readable format for display
-        features_display = {}
-        for key, value in session['features'].items():
-            if isinstance(value, float):
-                features_display[key] = round(value, 4)
-            else:
-                features_display[key] = value
-        
-        return render_template('results.html', 
-                             spectrograms=spectrogram_paths,
-                             features=features_display,
-                             filename=original_filename)
-    
-    except Exception as e:
-        app.logger.error(f"Single file results error: {str(e)}")
-        return render_template('index.html', 
-                             error=f"Error loading results: {str(e)}",
-                             max_files=MAX_FILES_PER_SESSION)
-
-def handle_batch_results():
-    """Handle batch processing results."""
     session_id = session['session_id']
     
     # Check if batch processing is complete
@@ -347,48 +274,47 @@ def handle_batch_results():
         # Load batch results
         results_dir = os.path.join('results', session_id)
         processed_files = []
-        combined_features = []
         
-        for file_info in session.get('files', []):
-            original_filename = file_info['original_name']
-            saved_filename = file_info['saved_name']
-            file_id = saved_filename.split('.')[0]
-            file_results_dir = os.path.join(results_dir, file_id)
-            
-            if os.path.exists(file_results_dir):
-                # Get spectrogram info
-                spectrograms = {}
-                spectrogram_types = ['mel', 'cqt', 'log_stft', 'wavelet', 'spectral_kurtosis', 'modulation']
-                
-                for spec_type in spectrogram_types:
-                    spec_path = os.path.join(file_results_dir, f'{spec_type}_spectrogram.png')
-                    if os.path.exists(spec_path):
-                        spectrograms[spec_type] = {
-                            'name': spec_type.replace('_', ' ').title(),
-                            'path': url_for('serve_batch_result_file', 
-                                          session_id=session_id, 
-                                          file_id=file_id,
-                                          filename=f'{spec_type}_spectrogram.png')
-                        }
-                
-                # Load features
-                features_path = os.path.join(file_results_dir, 'features.json')
-                features = {}
-                if os.path.exists(features_path):
-                    with open(features_path, 'r') as f:
-                        features = json.load(f)
-                        features['filename'] = original_filename
-                        combined_features.append(features)
-                
-                processed_files.append({
-                    'filename': original_filename,
-                    'file_id': file_id,
-                    'spectrograms': spectrograms,
-                    'features_count': len(features)
-                })
+        print(f"Loading results from: {results_dir}")
         
-        # Store combined features for download
-        session['combined_features'] = combined_features
+        if os.path.exists(results_dir):
+            for file_id in os.listdir(results_dir):
+                file_dir = os.path.join(results_dir, file_id)
+                if os.path.isdir(file_dir):
+                    print(f"Processing results for file_id: {file_id}")
+                    
+                    # Load features to get original filename
+                    features_path = os.path.join(file_dir, 'features.json')
+                    if os.path.exists(features_path):
+                        with open(features_path, 'r') as f:
+                            features = json.load(f)
+                            original_filename = features.get('filename', file_id)
+                        
+                        # Get spectrogram info
+                        spectrograms = {}
+                        spectrogram_types = ['mel', 'cqt', 'log_stft', 'wavelet', 'spectral_kurtosis', 'modulation']
+                        
+                        for spec_type in spectrogram_types:
+                            spec_path = os.path.join(file_dir, f'{spec_type}_spectrogram.png')
+                            if os.path.exists(spec_path):
+                                spectrograms[spec_type] = {
+                                    'name': spec_type.replace('_', ' ').title(),
+                                    'path': url_for('serve_result_file', 
+                                                  session_id=session_id, 
+                                                  file_id=file_id,
+                                                  filename=f'{spec_type}_spectrogram.png')
+                                }
+                        
+                        processed_files.append({
+                            'filename': original_filename,
+                            'file_id': file_id,
+                            'spectrograms': spectrograms,
+                            'features_count': len(features)
+                        })
+                        
+                        print(f"Added processed file: {original_filename} with {len(spectrograms)} spectrograms")
+        
+        print(f"Total processed files: {len(processed_files)}")
         
         return render_template('batch_results.html',
                              processed_files=processed_files,
@@ -396,32 +322,15 @@ def handle_batch_results():
                              session_id=session_id)
     
     except Exception as e:
-        app.logger.error(f"Batch results error: {str(e)}")
+        app.logger.error(f"Results error: {str(e)}")
+        print(f"Results error: {str(e)}")
         return render_template('index.html', 
                              error=f"Error loading results: {str(e)}",
                              max_files=MAX_FILES_PER_SESSION)
 
-@app.route('/results/<session_id>/<filename>')
-def serve_result_file(session_id, filename):
-    """Serve single file results."""
-    try:
-        if 'session_id' not in session or session['session_id'] != session_id:
-            return "Unauthorized", 403
-        
-        results_dir = os.path.join(os.getcwd(), 'results', session_id)
-        
-        if not os.path.exists(os.path.join(results_dir, filename)):
-            return "File not found", 404
-        
-        return send_from_directory(results_dir, filename)
-    
-    except Exception as e:
-        app.logger.error(f"Error serving single file {filename}: {str(e)}")
-        return "Error serving file", 500
-
 @app.route('/results/<session_id>/<file_id>/<filename>')
-def serve_batch_result_file(session_id, file_id, filename):
-    """Serve batch file results."""
+def serve_result_file(session_id, file_id, filename):
+    """Serve result files (spectrograms)."""
     try:
         if 'session_id' not in session or session['session_id'] != session_id:
             return "Unauthorized", 403
@@ -429,56 +338,36 @@ def serve_batch_result_file(session_id, file_id, filename):
         results_dir = os.path.join(os.getcwd(), 'results', session_id, file_id)
         
         if not os.path.exists(os.path.join(results_dir, filename)):
+            print(f"File not found: {os.path.join(results_dir, filename)}")
             return "File not found", 404
         
         return send_from_directory(results_dir, filename)
     
     except Exception as e:
-        app.logger.error(f"Error serving batch file {filename}: {str(e)}")
+        app.logger.error(f"Error serving file {filename}: {str(e)}")
         return "Error serving file", 500
-
-@app.route('/download/<format>')
-def download_features(format):
-    """Download features for single file."""
-    if 'features' not in session:
-        return redirect(url_for('index'))
-    
-    features = session['features']
-    original_filename = session.get('original_filename', 'motor_features')
-    base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
-    
-    if format == 'csv':
-        df = pd.DataFrame([features])
-        output = BytesIO()
-        df.to_csv(output, index=False)
-        output.seek(0)
-        
-        return send_file(output, 
-                        mimetype='text/csv',
-                        as_attachment=True,
-                        download_name=f'{base_name}_features.csv')
-    
-    elif format == 'json':
-        output = BytesIO()
-        json_str = json.dumps(features, indent=2)
-        output.write(json_str.encode())
-        output.seek(0)
-        
-        return send_file(output,
-                        mimetype='application/json',
-                        as_attachment=True,
-                        download_name=f'{base_name}_features.json')
-    
-    return redirect(url_for('results'))
 
 @app.route('/download/features/<format>')
 def download_combined_features(format):
-    """Download combined features from batch processing."""
-    if 'combined_features' not in session:
+    """Download combined features from all processed files."""
+    if 'session_id' not in session:
         return redirect(url_for('index'))
     
-    features = session['combined_features']
-    session_id = session.get('session_id', 'batch')
+    session_id = session['session_id']
+    
+    # Load all features from files
+    features = []
+    results_dir = os.path.join('results', session_id)
+    
+    if os.path.exists(results_dir):
+        for file_id in os.listdir(results_dir):
+            features_path = os.path.join(results_dir, file_id, 'features.json')
+            if os.path.exists(features_path):
+                with open(features_path, 'r') as f:
+                    features.append(json.load(f))
+    
+    if not features:
+        return redirect(url_for('index'))
     
     if format == 'csv':
         df = pd.DataFrame(features)
@@ -506,14 +395,29 @@ def download_combined_features(format):
 
 @app.route('/download/spectrograms')
 def download_spectrograms_zip():
-    """Download all spectrograms as ZIP."""
+    """Download all spectrograms as ZIP file."""
     if 'session_id' not in session:
         return redirect(url_for('index'))
     
     session_id = session['session_id']
     
     try:
-        zip_path = create_zip_download(session_id, session.get('files', []))
+        # Create file list from directory structure
+        file_list = []
+        results_dir = os.path.join('results', session_id)
+        
+        if os.path.exists(results_dir):
+            for file_id in os.listdir(results_dir):
+                features_path = os.path.join(results_dir, file_id, 'features.json')
+                if os.path.exists(features_path):
+                    with open(features_path, 'r') as f:
+                        features = json.load(f)
+                        file_list.append({
+                            'original_name': features.get('filename', file_id),
+                            'saved_name': f"{file_id}.wav"
+                        })
+        
+        zip_path = create_zip_download(session_id, file_list)
         
         if not os.path.exists(zip_path):
             return "Error creating ZIP file", 500
@@ -529,12 +433,11 @@ def download_spectrograms_zip():
 
 @app.route('/clear', methods=['POST'])
 def clear_results():
-    """Clear all session data and uploaded files."""
+    """Clear all session data and files."""
     if 'session_id' in session:
         session_id = session['session_id']
         clear_session_files(session_id)
         
-        # Clean up batch status
         with batch_lock:
             if session_id in batch_status:
                 del batch_status[session_id]
