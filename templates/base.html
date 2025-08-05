@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Motor Fault Detection{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="description" content="Advanced motor fault detection using spectrogram analysis and machine learning">
+    <meta name="keywords" content="motor fault, detection, spectrogram, analysis, machine learning">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="nav-brand">
+                🔧 Motor Fault Detector
+            </a>
+            <div class="nav-items">
+                <button id="theme-toggle" class="theme-toggle">
+                    🌙 Dark Mode
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Loading indicator -->
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing audio file... Please wait.</p>
+    </div>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--secondary-color);">
+        <p>&copy; 2025 Motor Fault Detection App. Built with Flask and advanced signal processing.</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
