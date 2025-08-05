@@ -1,0 +1,850 @@
+/* Motor Fault Detection App Styles - Phase 2: Batch Processing */
+
+:root {
+  /* Light mode colors */
+  --bg-color: #ffffff;
+  --text-color: #333333;
+  --primary-color: #007bff;
+  --secondary-color: #6c757d;
+  --success-color: #28a745;
+  --danger-color: #dc3545;
+  --warning-color: #ffc107;
+  --info-color: #17a2b8;
+  --light-color: #f8f9fa;
+  --dark-color: #343a40;
+  --border-color: #dee2e6;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --input-border: #ced4da;
+  --navbar-bg: #f8f9fa;
+  --shadow: 0 2px 4px rgba(0,0,0,0.1);
+  --progress-bg: #e9ecef;
+}
+
+[data-theme="dark"] {
+  /* Dark mode colors */
+  --bg-color: #121212;
+  --text-color: #e0e0e0;
+  --primary-color: #4dabf7;
+  --secondary-color: #adb5bd;
+  --success-color: #40c057;
+  --danger-color: #fa5252;
+  --warning-color: #fd7e14;
+  --info-color: #339af0;
+  --light-color: #2c2c2c;
+  --dark-color: #1a1a1a;
+  --border-color: #495057;
+  --card-bg: #1e1e1e;
+  --input-bg: #2c2c2c;
+  --input-border: #495057;
+  --navbar-bg: #1a1a1a;
+  --shadow: 0 2px 4px rgba(0,0,0,0.3);
+  --progress-bg: #495057;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.6;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Navigation */
+.navbar {
+  background-color: var(--navbar-bg);
+  padding: 1rem 0;
+  box-shadow: var(--shadow);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.nav-items {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Dark mode toggle */
+.theme-toggle {
+  background: var(--primary-color);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 0.9rem;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+/* Main container */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Cards */
+.card {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+  overflow: hidden;
+  transition: box-shadow 0.3s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.card-header {
+  background-color: var(--light-color);
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-title {
+  margin: 0;
+  color: var(--primary-color);
+  font-size: 1.5rem;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+/* Upload form - Enhanced for multiple files */
+.upload-form {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.file-input-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+.file-input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.file-input-label {
+  display: inline-block;
+  padding: 15px 40px;
+  background: linear-gradient(135deg, var(--primary-color), #0056b3);
+  color: white;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  font-size: 1.1rem;
+  box-shadow: var(--shadow);
+}
+
+.file-input-label:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+}
+
+.file-info {
+  margin: 20px 0;
+  font-size: 0.9rem;
+  color: var(--text-color);
+  background-color: var(--light-color);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  text-align: left;
+}
+
+/* Progress Bar Styles */
+.progress-bar-container {
+  width: 100%;
+  height: 30px;
+  background-color: var(--progress-bg);
+  border-radius: 15px;
+  overflow: hidden;
+  margin: 20px 0;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+  transition: width 0.5s ease;
+  border-radius: 15px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: progressShine 2s infinite;
+}
+
+@keyframes progressShine {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.progress-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+  padding: 15px;
+  background-color: var(--light-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.progress-info p {
+  margin: 0;
+  padding: 5px 0;
+}
+
+/* Batch Results Styles */
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 25px;
+  margin-top: 30px;
+}
+
+.file-result-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: var(--shadow);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.file-result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+.file-result-card h3 {
+  color: var(--primary-color);
+  margin-bottom: 15px;
+  word-break: break-word;
+  font-size: 1.2rem;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 10px;
+}
+
+.spectrogram-thumbnails {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 15px 0;
+}
+
+.thumbnail {
+  text-align: center;
+  transition: transform 0.3s;
+}
+
+.thumbnail:hover {
+  transform: scale(1.05);
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 2px solid var(--border-color);
+  transition: border-color 0.3s;
+}
+
+.thumbnail img:hover {
+  border-color: var(--primary-color);
+}
+
+.thumbnail span {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 8px;
+  color: var(--secondary-color);
+  font-weight: 500;
+}
+
+.file-details {
+  border-top: 2px solid var(--border-color);
+  padding-top: 20px;
+  margin-top: 20px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.spectrogram-full {
+  margin-bottom: 25px;
+  background-color: var(--light-color);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.spectrogram-full h5 {
+  color: var(--primary-color);
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+.spectrogram-full img {
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.3s;
+  margin: 5px;
+  box-shadow: var(--shadow);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color), #0056b3);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--success-color), #1e7e34);
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--danger-color), #c82333);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220,53,69,0.3);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, var(--warning-color), #e0a800);
+  color: #212529;
+}
+
+.btn-warning:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255,193,7,0.3);
+}
+
+.btn-info {
+  background: linear-gradient(135deg, var(--info-color), #117a8b);
+  color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(23,162,184,0.3);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, var(--secondary-color), #5a6268);
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108,117,125,0.3);
+}
+
+/* Download Section */
+.download-section {
+  text-align: center;
+  padding: 25px;
+  background: linear-gradient(135deg, var(--light-color), var(--card-bg));
+  border-radius: 12px;
+  border: 2px solid var(--border-color);
+  margin: 25px 0;
+}
+
+.download-section h3 {
+  color: var(--primary-color);
+  margin-bottom: 20px;
+  font-size: 1.4rem;
+}
+
+.download-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Results grid - Enhanced for batch results */
+.results-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 25px;
+  margin-top: 25px;
+}
+
+/* Spectrograms section */
+.spectrograms-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 25px;
+}
+
+.spectrogram-item {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.spectrogram-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+
+.spectrogram-item h3 {
+  background: linear-gradient(135deg, var(--primary-color), #0056b3);
+  color: white;
+  padding: 15px;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.spectrogram-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.spectrogram-description {
+  padding: 15px;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+  background-color: var(--light-color);
+}
+
+/* Features panel - Enhanced */
+.features-panel {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  position: sticky;
+  top: 20px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.features-header {
+  background: linear-gradient(135deg, var(--primary-color), #0056b3);
+  color: white;
+  padding: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.features-content {
+  padding: 20px;
+}
+
+.features-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.feature-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.3s;
+}
+
+.feature-item:hover {
+  background-color: var(--light-color);
+  padding-left: 10px;
+  padding-right: 10px;
+  border-radius: 6px;
+}
+
+.feature-item:last-child {
+  border-bottom: none;
+}
+
+.feature-name {
+  font-weight: 500;
+  text-transform: capitalize;
+  color: var(--text-color);
+}
+
+.feature-value {
+  font-family: 'Courier New', monospace;
+  color: var(--primary-color);
+  font-weight: bold;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.feature-value:hover {
+  color: var(--success-color);
+}
+
+/* Completed files list */
+#completed-list, #error-list {
+  max-height: 250px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+}
+
+#completed-list li, #error-list li {
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: background-color 0.3s;
+}
+
+#completed-list li {
+  background-color: rgba(40,167,69,0.1);
+}
+
+#completed-list li:hover {
+  background-color: rgba(40,167,69,0.2);
+}
+
+#error-list li {
+  background-color: rgba(220,53,69,0.1);
+}
+
+#error-list li:hover {
+  background-color: rgba(220,53,69,0.2);
+}
+
+/* Alerts */
+.alert {
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.alert-danger {
+  background-color: rgba(220,53,69,0.1);
+  color: #721c24;
+  border-left-color: var(--danger-color);
+}
+
+.alert-success {
+  background-color: rgba(40,167,69,0.1);
+  color: #155724;
+  border-left-color: var(--success-color);
+}
+
+.alert-info {
+  background-color: rgba(23,162,184,0.1);
+  color: #0c5460;
+  border-left-color: var(--info-color);
+}
+
+/* Loading spinner */
+.loading {
+  display: none;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.spinner {
+  border: 4px solid var(--border-color);
+  border-top: 4px solid var(--primary-color);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive design - Enhanced for batch processing */
+@media (max-width: 768px) {
+  .nav-container {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .nav-items {
+    justify-content: center;
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .spectrograms-section {
+    grid-template-columns: 1fr;
+  }
+
+  .files-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .spectrogram-thumbnails {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .download-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .features-panel {
+    position: static;
+    max-height: unset;
+  }
+
+  .container {
+    padding: 15px;
+  }
+
+  .progress-info {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-header, .card-body {
+    padding: 15px;
+  }
+
+  .upload-form {
+    padding: 20px 10px;
+  }
+
+  .btn {
+    padding: 10px 18px;
+    font-size: 0.9rem;
+  }
+
+  .feature-item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .feature-value {
+    text-align: left;
+  }
+
+  .spectrogram-thumbnails {
+    grid-template-columns: 1fr;
+  }
+
+  .file-input-label {
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
+}
+
+/* Dark mode specific adjustments */
+[data-theme="dark"] .alert-danger {
+  background-color: rgba(220,53,69,0.15);
+  color: #f1aeb5;
+}
+
+[data-theme="dark"] .alert-success {
+  background-color: rgba(40,167,69,0.15);
+  color: #a3cfbb;
+}
+
+[data-theme="dark"] .alert-info {
+  background-color: rgba(23,162,184,0.15);
+  color: #a6e1ec;
+}
+
+[data-theme="dark"] #completed-list li {
+  background-color: rgba(40,167,69,0.2);
+}
+
+[data-theme="dark"] #error-list li {
+  background-color: rgba(220,53,69,0.2);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--light-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--secondary-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
+/* Focus styles for accessibility */
+.btn:focus,
+.file-input:focus + .file-input-label,
+.theme-toggle:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+* {
+  transition: color 0.3s, background-color 0.3s, border-color 0.3s;
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Batch processing specific animations */
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* File upload drag and drop styling */
+.file-input-wrapper.drag-over .file-input-label {
+  background: linear-gradient(135deg, var(--success-color), #1e7e34);
+  transform: scale(1.05);
+}
+
+.file-input-wrapper.drag-over::after {
+  content: 'Drop files here!';
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--success-color);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
