@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Motor Fault Detection - Upload{% endblock %}
+{% block title %}Batch Upload - Motor Fault Detection{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h1 class="card-title">Motor Fault Detection System</h1>
+        <h1 class="card-title">Motor Fault Detection - Batch Processing</h1>
     </div>
     <div class="card-body">
-        <p>Upload audio files from motors for comprehensive fault analysis. Choose between single file or batch processing:</p>
+        <p>Upload audio files (1 to {{ max_files }} files) for comprehensive motor fault analysis through our batch processing system.</p>
         
         <ul style="margin: 20px 0; padding-left: 20px;">
-            <li><strong>Single File Mode:</strong> Quick analysis of one audio file</li>
-            <li><strong>Batch Mode:</strong> Process up to {{ max_files }} files with organized results</li>
-            <li><strong>Six Spectrogram Types:</strong> Comprehensive fault detection</li>
-            <li><strong>Feature Extraction:</strong> 50+ analytical features</li>
+            <li><strong>Single or Multiple Files:</strong> Both handled through batch processing</li>
+            <li><strong>Six Spectrogram Types:</strong> Complete fault analysis for each file</li>
+            <li><strong>Organized Results:</strong> Separate folder for each file's spectrograms</li>
+            <li><strong>Combined Downloads:</strong> CSV/JSON for all features, ZIP for all images</li>
         </ul>
     </div>
 </div>
@@ -30,61 +30,31 @@
         <h2 class="card-title">Upload Audio Files</h2>
     </div>
     <div class="card-body">
-        <!-- Single File Upload -->
-        <div class="upload-mode">
-            <h3>Single File Upload</h3>
-            <form id="single-upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="upload-form">
-                <div class="file-input-wrapper">
-                    <input type="file" 
-                           id="single-file-input" 
-                           name="file" 
-                           accept=".wav,.mp3,.flac,.m4a,.ogg" 
-                           class="file-input">
-                    <label for="single-file-input" class="file-input-label">
-                        📁 Choose Single Audio File
-                    </label>
-                </div>
-                
-                <div id="single-file-info" class="file-info" style="display: none;"></div>
-                
-                <button type="submit" class="btn btn-primary" id="single-upload-btn" disabled>
-                    🔍 Analyze Single File
-                </button>
-            </form>
-        </div>
-
-        <div style="margin: 30px 0; text-align: center; color: var(--secondary-color);">
-            <strong>— OR —</strong>
-        </div>
-
-        <!-- Batch Upload -->
-        <div class="upload-mode">
-            <h3>Batch Upload (Multiple Files)</h3>
-            <form id="batch-upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="upload-form">
-                <div class="file-input-wrapper">
-                    <input type="file" 
-                           id="batch-file-input" 
-                           name="files" 
-                           accept=".wav,.mp3,.flac,.m4a,.ogg" 
-                           class="file-input" 
-                           multiple>
-                    <label for="batch-file-input" class="file-input-label">
-                        📁 Choose Multiple Audio Files
-                    </label>
-                </div>
-                
-                <div id="batch-file-info" class="file-info" style="display: none;"></div>
-                
-                <button type="submit" class="btn btn-success" id="batch-upload-btn" disabled>
-                    🚀 Start Batch Analysis
-                </button>
-            </form>
-        </div>
-        
-        <p style="margin-top: 20px; color: var(--secondary-color); font-size: 0.9rem; text-align: center;">
-            Supported formats: WAV, MP3, FLAC, M4A, OGG<br>
-            Single file: up to 100MB • Batch: up to {{ max_files }} files per session
-        </p>
+        <form id="upload-form" action="{{ url_for('upload_files') }}" method="post" enctype="multipart/form-data" class="upload-form">
+            <div class="file-input-wrapper">
+                <input type="file" 
+                       id="file-input" 
+                       name="files" 
+                       accept=".wav,.mp3,.flac,.m4a,.ogg" 
+                       class="file-input" 
+                       multiple 
+                       required>
+                <label for="file-input" class="file-input-label">
+                    📁 Choose Audio Files (1 or Multiple)
+                </label>
+            </div>
+            
+            <div id="file-info" class="file-info" style="display: none;"></div>
+            
+            <button type="submit" class="btn btn-primary" id="upload-btn" disabled style="margin-top: 15px;">
+                🚀 Start Batch Processing
+            </button>
+            
+            <p style="margin-top: 15px; color: var(--secondary-color); font-size: 0.9rem;">
+                Supported formats: WAV, MP3, FLAC, M4A, OGG<br>
+                Maximum {{ max_files }} files per session • Up to 100MB per file
+            </p>
+        </form>
         
         {% if session.get('session_id') %}
         <div style="margin-top: 30px; text-align: center;">
@@ -98,78 +68,64 @@
     </div>
 </div>
 
-<style>
-.upload-mode {
-    padding: 20px;
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    margin: 20px 0;
-    background-color: var(--light-color);
-}
-
-.upload-mode h3 {
-    color: var(--primary-color);
-    margin-bottom: 15px;
-    text-align: center;
-}
-</style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Single file handling
-    const singleFileInput = document.getElementById('single-file-input');
-    const singleFileInfo = document.getElementById('single-file-info');
-    const singleUploadBtn = document.getElementById('single-upload-btn');
+    const fileInput = document.getElementById('file-input');
+    const fileInfo = document.getElementById('file-info');
+    const uploadBtn = document.getElementById('upload-btn');
     
-    singleFileInput.addEventListener('change', function() {
-        const file = this.files[0];
-        if (file) {
-            singleFileInfo.innerHTML = `
-                <strong>Selected:</strong> ${file.name}<br>
-                <strong>Size:</strong> ${formatFileSize(file.size)}
-            `;
-            singleFileInfo.style.display = 'block';
-            singleUploadBtn.disabled = false;
-        } else {
-            singleFileInfo.style.display = 'none';
-            singleUploadBtn.disabled = true;
-        }
-    });
-    
-    // Batch file handling
-    const batchFileInput = document.getElementById('batch-file-input');
-    const batchFileInfo = document.getElementById('batch-file-info');
-    const batchUploadBtn = document.getElementById('batch-upload-btn');
-    
-    batchFileInput.addEventListener('change', function() {
-        const files = this.files;
+    fileInput.addEventListener('change', function(event) {
+        const files = event.target.files;
+        
         if (files.length > 0) {
             let totalSize = 0;
             let fileList = [];
+            let validFiles = 0;
             
             for (let i = 0; i < files.length; i++) {
-                totalSize += files[i].size;
-                fileList.push(`• ${files[i].name} (${formatFileSize(files[i].size)})`);
+                const file = files[i];
+                const isValid = validateAudioFile(file);
+                
+                if (isValid) {
+                    validFiles++;
+                    totalSize += file.size;
+                    fileList.push(`✅ ${file.name} (${formatFileSize(file.size)})`);
+                } else {
+                    fileList.push(`❌ ${file.name} (Invalid format or too large)`);
+                }
             }
             
-            batchFileInfo.innerHTML = `
-                <strong>Selected files:</strong> ${files.length}<br>
-                <strong>Total size:</strong> ${formatFileSize(totalSize)}<br>
-                <div style="max-height: 150px; overflow-y: auto; margin-top: 10px;">
+            fileInfo.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <strong>Selected:</strong> ${files.length} files | <strong>Valid:</strong> ${validFiles} files<br>
+                    <strong>Total size:</strong> ${formatFileSize(totalSize)}
+                </div>
+                <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
                     ${fileList.join('<br>')}
                 </div>
             `;
-            batchFileInfo.style.display = 'block';
-            batchUploadBtn.disabled = files.length > {{ max_files }};
             
-            if (files.length > {{ max_files }}) {
-                batchFileInfo.innerHTML += '<br><span style="color: var(--danger-color);">⚠️ Too many files!</span>';
+            fileInfo.style.display = 'block';
+            uploadBtn.disabled = validFiles === 0 || validFiles > {{ max_files }};
+            
+            if (validFiles > {{ max_files }}) {
+                fileInfo.innerHTML += '<br><span style="color: var(--danger-color); font-weight: bold;">⚠️ Too many files!</span>';
+            } else if (validFiles > 0) {
+                fileInfo.innerHTML += '<br><span style="color: var(--success-color); font-weight: bold;">✅ Ready for processing!</span>';
             }
         } else {
-            batchFileInfo.style.display = 'none';
-            batchUploadBtn.disabled = true;
+            fileInfo.style.display = 'none';
+            uploadBtn.disabled = true;
         }
     });
+    
+    function validateAudioFile(file) {
+        const allowedExtensions = ['wav', 'mp3', 'flac', 'm4a', 'ogg'];
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        
+        const extension = file.name.split('.').pop().toLowerCase();
+        return allowedExtensions.includes(extension) && file.size <= maxSize;
+    }
     
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
