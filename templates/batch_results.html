@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Results - Motor Fault Detection{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">Batch Analysis Results</h1>
+    </div>
+    <div class="card-body">
+        <p><strong>Processed {{ total_files }} files successfully!</strong></p>
+        <p>Download options and individual file results are available below.</p>
+        
+        <div class="download-section" style="text-align: center; margin: 20px 0; padding: 20px; background-color: var(--light-color); border-radius: 8px;">
+            <h3>📦 Batch Downloads</h3>
+            <div class="download-buttons">
+                <a href="{{ url_for('download_combined_features', format='csv') }}" class="btn btn-success">
+                    📊 Download All Features (CSV)
+                </a>
+                <a href="{{ url_for('download_combined_features', format='json') }}" class="btn btn-primary">
+                    📄 Download All Features (JSON)
+                </a>
+                <a href="{{ url_for('download_spectrograms_zip') }}" class="btn btn-warning">
+                    🗂️ Download All Spectrograms (ZIP)
+                </a>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">📁 Upload New Batch</a>
+            <form action="{{ url_for('clear_results') }}" method="post" style="display: inline;">
+                <button type="submit" id="clear-btn" class="btn btn-danger">🗑️ Clear All Results</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Individual File Results -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Individual File Results</h2>
+    </div>
+    <div class="card-body">
+        <div class="files-grid">
+            {% for file in processed_files %}
+            <div class="file-result-card">
+                <h3>{{ file.filename }}</h3>
+                <p><strong>Features extracted:</strong> {{ file.features_count }}</p>
+                
+                <div class="spectrograms-preview">
+                    <h4>Spectrograms:</h4>
+                    <div class="spectrogram-thumbnails">
+                        {% for spec_type, spec_info in file.spectrograms.items() %}
+                        <div class="thumbnail">
+                            <img src="{{ spec_info.path }}" alt="{{ spec_info.name }}" loading="lazy">
+                            <span>{{ spec_info.name }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <button class="btn btn-info" onclick="toggleDetails('{{ file.file_id }}')">
+                    👁️ View Details
+                </button>
+                
+                <div id="details-{{ file.file_id }}" class="file-details" style="display: none; margin-top: 15px;">
+                    <div class="spectrograms-full">
+                        {% for spec_type, spec_info in file.spectrograms.items() %}
+                        <div class="spectrogram-full">
+                            <h5>{{ spec_info.name }}</h5>
+                            <img src="{{ spec_info.path }}" alt="{{ spec_info.name }}" style="width: 100%; height: auto;">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+.files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.file-result-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+
+.file-result-card h3 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+    word-break: break-word;
+}
+
+.spectrogram-thumbnails {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.thumbnail {
+    text-align: center;
+}
+
+.thumbnail img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.thumbnail span {
+    display: block;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    color: var(--secondary-color);
+}
+
+.file-details {
+    border-top: 1px solid var(--border-color);
+    padding-top: 15px;
+}
+
+.spectrogram-full {
+    margin-bottom: 20px;
+}
+
+.spectrogram-full h5 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.download-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .files-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .download-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .spectrogram-thumbnails {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+
+<script>
+function toggleDetails(fileId) {
+    const details = document.getElementById('details-' + fileId);
+    const button = event.target;
+    
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        button.textContent = '🙈 Hide Details';
+    } else {
+        details.style.display = 'none';
+        button.textContent = '👁️ View Details';
+    }
+}
+</script>
+{% endblock %}
