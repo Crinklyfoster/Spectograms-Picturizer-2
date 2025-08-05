@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Processing - Motor Fault Detection{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">Batch Processing in Progress</h1>
+    </div>
+    <div class="card-body">
+        <div id="progress-container">
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+            </div>
+            
+            <div class="progress-info">
+                <p><strong>Status:</strong> <span id="status">{{ status.status }}</span></p>
+                <p><strong>Progress:</strong> <span id="progress">{{ status.current_file }}</span> of {{ status.total_files }} files</p>
+                <p><strong>Current file:</strong> <span id="current-file">{{ status.get('current_filename', 'Initializing...') }}</span></p>
+            </div>
+            
+            <div id="completed-files" style="margin-top: 20px;">
+                <h3>Completed Files:</h3>
+                <ul id="completed-list">
+                    {% for file in status.completed_files %}
+                    <li>✅ {{ file }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            {% if status.errors %}
+            <div id="error-files" style="margin-top: 20px;">
+                <h3 style="color: var(--danger-color);">Errors:</h3>
+                <ul id="error-list">
+                    {% for error in status.errors %}
+                    <li style="color: var(--danger-color);">❌ {{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center;">
+            <button class="btn btn-secondary" onclick="location.reload()">🔄 Refresh Status</button>
+            <form action="{{ url_for('clear_results') }}" method="post" style="display: inline; margin-left: 10px;">
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to cancel and clear all results?')">
+                    🗑️ Cancel & Clear
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.progress-bar-container {
+    width: 100%;
+    height: 30px;
+    background-color: var(--light-color);
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+    transition: width 0.3s ease;
+    border-radius: 15px;
+}
+
+.progress-info {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#completed-list, #error-list {
+    max-height: 200px;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0;
+}
+
+#completed-list li, #error-list li {
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+</style>
+
+<script>
+// Auto-refresh progress every 2 seconds
+function updateProgress() {
+    fetch('/batch_status')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('status').textContent = data.status;
+            document.getElementById('progress').textContent = data.current_file;
+            document.getElementById('current-file').textContent = data.current_filename || 'Processing...';
+            document.getElementById('progress-bar').style.width = data.progress + '%';
+            
+            // Update completed files
+            const completedList = document.getElementById('completed-list');
+            completedList.innerHTML = data.completed_files.map(file => `<li>✅ ${file}</li>`).join('');
+            
+            // Update errors
+            if (data.errors.length > 0) {
+                const errorContainer = document.getElementById('error-files') || document.createElement('div');
+                errorContainer.id = 'error-files';
+                errorContainer.innerHTML = `
+                    <h3 style="color: var(--danger-color);">Errors:</h3>
+                    <ul id="error-list">${data.errors.map(error => `<li style="color: var(--danger-color);">❌ ${error}</li>`).join('')}</ul>
+                `;
+                if (!document.getElementById('error-files')) {
+                    document.getElementById('completed-files').after(errorContainer);
+                }
+            }
+            
+            // Redirect when complete
+            if (data.status === 'completed') {
+                setTimeout(() => {
+                    window.location.href = '/results';
+                }, 1000);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching progress:', error);
+        });
+}
+
+// Update every 2 seconds
+setInterval(updateProgress, 2000);
+
+// Initial update
+updateProgress();
+</script>
+{% endblock %}
