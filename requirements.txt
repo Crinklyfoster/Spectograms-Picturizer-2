@@ -10,4 +10,3 @@ pywavelets==1.4.1
 Werkzeug==2.3.7
 setuptools>=61.2
 wheel>=0.38.4
-gunicorn==21.2.0
