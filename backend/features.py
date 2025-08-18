@@ -1,6 +1,6 @@
 """
-Feature extraction module with integrated audio denoising.
-Extracts time-domain and frequency-domain features from denoised audio signals.
+Feature extraction module for motor fault detection.
+Extracts time-domain and frequency-domain features from audio signals.
 """
 
 import librosa
@@ -8,9 +8,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from sklearn.preprocessing import StandardScaler
-
-# Import denoising function from spectrograms module
-from .spectrograms import apply_denoising
 
 def extract_time_domain_features(y, sr):
     """
@@ -60,6 +57,10 @@ def extract_frequency_domain_features(y, sr):
         dict: Frequency-domain features
     """
     features = {}
+    
+    # Compute STFT
+    stft = librosa.stft(y)
+    magnitude = np.abs(stft)
     
     # Spectral features using librosa
     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
@@ -130,6 +131,7 @@ def extract_fault_specific_features(y, sr):
     harmonic, percussive = librosa.effects.hpss(y)
     harmonic_energy = np.sum(harmonic**2)
     noise_energy = np.sum(percussive**2)
+    
     if noise_energy > 0:
         features['harmonic_noise_ratio'] = float(harmonic_energy / noise_energy)
     else:
@@ -139,6 +141,7 @@ def extract_fault_specific_features(y, sr):
     stft = librosa.stft(y)
     magnitude = np.abs(stft)
     spectral_irregularity = []
+    
     for frame in magnitude.T:
         if len(frame) > 1:
             diff = np.diff(frame)
@@ -151,11 +154,13 @@ def extract_fault_specific_features(y, sr):
     # Low frequency energy ratio (for detecting bearing faults)
     freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
     magnitude_spectrum = np.mean(np.abs(librosa.stft(y, n_fft=2048)), axis=1)
+    
     low_freq_mask = freqs <= 1000  # Below 1kHz
-    high_freq_mask = freqs > 1000   # Above 1kHz
+    high_freq_mask = freqs > 1000  # Above 1kHz
     
     low_freq_energy = np.sum(magnitude_spectrum[low_freq_mask])
     total_energy = np.sum(magnitude_spectrum)
+    
     features['low_freq_energy_ratio'] = float(low_freq_energy / total_energy) if total_energy > 0 else 0.0
     
     # Spectral peaks (for detecting gear faults)
@@ -173,26 +178,18 @@ def extract_fault_specific_features(y, sr):
     
     return features
 
-def extract_all_features(audio_path, denoise=True, denoising_method='spectral_gating', noise_threshold=40):
+def extract_all_features(audio_path):
     """
-    Extract all features from audio file with optional denoising.
+    Extract all features from audio file.
     
     Args:
         audio_path: Path to audio file
-        denoise (bool): Whether to apply denoising (default: True)
-        denoising_method (str): Denoising method to use
-        noise_threshold (float): Ambient noise threshold in dB
     
     Returns:
         pandas.DataFrame: DataFrame with all extracted features
     """
     # Load audio
     y, sr = librosa.load(audio_path, sr=None)
-    
-    # 🆕 Apply denoising before feature extraction
-    if denoise:
-        print(f"🔧 Applying denoising for feature extraction (threshold: {noise_threshold} dB)")
-        y = apply_denoising(y, sr, method=denoising_method, noise_db_threshold=noise_threshold)
     
     # Extract different types of features
     time_features = extract_time_domain_features(y, sr)
@@ -206,8 +203,6 @@ def extract_all_features(audio_path, denoise=True, denoising_method='spectral_ga
     all_features['duration'] = float(len(y) / sr)
     all_features['sample_rate'] = int(sr)
     all_features['n_samples'] = len(y)
-    all_features['denoised'] = denoise
-    all_features['noise_threshold_db'] = noise_threshold if denoise else None
     
     # Convert to DataFrame
     df = pd.DataFrame([all_features])
