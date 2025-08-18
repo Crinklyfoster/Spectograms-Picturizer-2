@@ -1,7 +1,6 @@
 """
-Motor Fault Detection Flask Application - Batch Processing Only with Audio Denoising
+Motor Fault Detection Flask Application - Batch Processing Only
 Handles both single and multiple files through the same batch pipeline.
-Includes ambient noise removal (36-40 dB) before spectrogram generation.
 """
 
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, send_from_directory, jsonify
@@ -27,11 +26,6 @@ UPLOAD_FOLDER = 'uploads'
 RESULTS_FOLDER = 'results'
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'flac', 'm4a', 'ogg'}
 MAX_FILES_PER_SESSION = 100
-
-# 🆕 Audio Denoising Configuration
-DENOISING_ENABLED = True  # Set to False to disable denoising
-DENOISING_METHOD = 'spectral_gating'  # Options: 'spectral_gating', 'simple_gate'
-NOISE_THRESHOLD_DB = 40  # Ambient noise threshold in dB (36-40 typical)
 
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -90,14 +84,11 @@ def upload_files():
         session['upload_time'] = datetime.now().isoformat()
         session['total_files'] = len(valid_files)
         
-        print(f"🎵 Processing {len(valid_files)} files in session {session_id}")
-        print(f"🔧 Audio denoising: {'Enabled' if DENOISING_ENABLED else 'Disabled'}")
-        if DENOISING_ENABLED:
-            print(f"🎯 Denoising method: {DENOISING_METHOD}, Threshold: {NOISE_THRESHOLD_DB} dB")
+        print(f"Processing {len(valid_files)} files in session {session_id}")
         
         # Save uploaded files
         saved_files = save_uploaded_files(valid_files, session_id)
-        print(f"📁 Saved files: {[f['original_name'] for f in saved_files]}")
+        print(f"Saved files: {[f['original_name'] for f in saved_files]}")
         
         # Initialize batch status
         with batch_lock:
@@ -120,25 +111,25 @@ def upload_files():
         
     except Exception as e:
         app.logger.error(f"Upload error: {str(e)}")
-        print(f"❌ Upload error: {str(e)}")
+        print(f"Upload error: {str(e)}")
         return render_template('index.html', 
                              error=f"Error uploading files: {str(e)}",
                              max_files=MAX_FILES_PER_SESSION)
 
 def process_batch_files(session_id, file_list):
-    """Process all files in batch mode with audio denoising."""
+    """Process all files in batch mode."""
     try:
-        print(f"🚀 Starting batch processing for session {session_id}")
+        print(f"Starting batch processing for session {session_id}")
         results_dir = os.path.join('results', session_id)
         os.makedirs(results_dir, exist_ok=True)
         
         for i, file_info in enumerate(file_list):
-            print(f"🔄 Processing file {i+1}/{len(file_list)}: {file_info['original_name']}")
+            print(f"Processing file {i+1}/{len(file_list)}: {file_info['original_name']}")
             
             # Update status
             with batch_lock:
                 if session_id not in batch_status:
-                    print(f"⚠️ Session {session_id} was cleared, stopping processing")
+                    print(f"Session {session_id} was cleared, stopping processing")
                     break
                 
                 batch_status[session_id]['current_file'] = i + 1
@@ -150,7 +141,7 @@ def process_batch_files(session_id, file_list):
                 saved_filename = file_info['saved_name']
                 audio_path = get_upload_path(saved_filename, session_id)
                 
-                print(f"📂 Audio path: {audio_path}")
+                print(f"Audio path: {audio_path}")
                 
                 if not os.path.exists(audio_path):
                     raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -160,68 +151,46 @@ def process_batch_files(session_id, file_list):
                 file_results_dir = os.path.join(results_dir, file_id)
                 os.makedirs(file_results_dir, exist_ok=True)
                 
-                print(f"📊 Results directory: {file_results_dir}")
+                print(f"Results directory: {file_results_dir}")
                 
-                # 🆕 Generate spectrograms WITH DENOISING
-                print(f"🎨 Generating spectrograms for {original_filename}")
-                if DENOISING_ENABLED:
-                    print(f"🔧 Applying {DENOISING_METHOD} denoising (threshold: {NOISE_THRESHOLD_DB} dB)")
+                # Generate spectrograms
+                print(f"Generating spectrograms for {original_filename}")
+                spectrograms = generate_all_spectrograms(audio_path, session_id, file_id)
+                print(f"Generated {len(spectrograms)} spectrograms")
                 
-                spectrograms = generate_all_spectrograms(
-                    audio_path, 
-                    session_id, 
-                    file_id,
-                    denoise=DENOISING_ENABLED,
-                    denoising_method=DENOISING_METHOD,
-                    noise_threshold=NOISE_THRESHOLD_DB
-                )
-                print(f"✅ Generated {len(spectrograms)} spectrograms")
-                
-                # 🆕 Extract features WITH DENOISING
-                print(f"📈 Extracting features for {original_filename}")
-                if DENOISING_ENABLED:
-                    print(f"🔧 Applying denoising to feature extraction")
-                
-                features_df = extract_all_features(
-                    audio_path,
-                    denoise=DENOISING_ENABLED,
-                    denoising_method=DENOISING_METHOD,
-                    noise_threshold=NOISE_THRESHOLD_DB
-                )
+                # Extract features
+                print(f"Extracting features for {original_filename}")
+                features_df = extract_all_features(audio_path)
                 features_dict = features_df.to_dict('records')[0]
                 
                 # Add metadata
                 features_dict['filename'] = original_filename
                 features_dict['file_id'] = file_id
                 features_dict['session_id'] = session_id
-                features_dict['denoising_applied'] = DENOISING_ENABLED
-                features_dict['denoising_method'] = DENOISING_METHOD if DENOISING_ENABLED else None
-                features_dict['noise_threshold_db'] = NOISE_THRESHOLD_DB if DENOISING_ENABLED else None
-                features_dict['processing_timestamp'] = datetime.now().isoformat()
                 
                 # Save features as JSON
                 features_path = os.path.join(file_results_dir, 'features.json')
                 with open(features_path, 'w') as f:
                     json.dump(features_dict, f, indent=2, default=str)
                 
-                print(f"💾 Saved features to {features_path}")
+                print(f"Saved features to {features_path}")
                 
                 # Update completed files
                 with batch_lock:
                     if session_id in batch_status:
                         batch_status[session_id]['completed_files'].append(original_filename)
                 
-                print(f"✅ Completed processing {original_filename}")
+                print(f"Completed processing {original_filename}")
                 
             except Exception as e:
                 error_msg = f"Error processing {file_info['original_name']}: {str(e)}"
-                print(f"❌ {error_msg}")
+                print(error_msg)
                 
                 with batch_lock:
                     if session_id in batch_status:
                         batch_status[session_id]['errors'].append(error_msg)
             
-            # Small delay to prevent overwhelming
+            # Small delay
             time.sleep(0.1)
         
         # Mark as completed
@@ -229,13 +198,11 @@ def process_batch_files(session_id, file_list):
             if session_id in batch_status:
                 batch_status[session_id]['status'] = 'completed'
                 batch_status[session_id]['end_time'] = time.time()
-                processing_time = batch_status[session_id]['end_time'] - batch_status[session_id]['start_time']
-                print(f"🎉 Batch processing completed for session {session_id}")
-                print(f"⏱️ Total processing time: {processing_time:.2f} seconds")
+                print(f"Batch processing completed for session {session_id}")
         
     except Exception as e:
         error_msg = f"Batch processing error: {str(e)}"
-        print(f"💥 {error_msg}")
+        print(error_msg)
         
         with batch_lock:
             if session_id in batch_status:
@@ -278,7 +245,6 @@ def get_batch_status():
     # Calculate progress percentage
     progress = (status['current_file'] / status['total_files']) * 100 if status['total_files'] > 0 else 0
     
-    # Add denoising info to response
     response = {
         'status': status['status'],
         'current_file': status['current_file'],
@@ -286,10 +252,7 @@ def get_batch_status():
         'progress': round(progress, 1),
         'completed_files': status['completed_files'],
         'errors': status['errors'],
-        'current_filename': status.get('current_filename', ''),
-        'denoising_enabled': DENOISING_ENABLED,
-        'denoising_method': DENOISING_METHOD if DENOISING_ENABLED else None,
-        'noise_threshold_db': NOISE_THRESHOLD_DB if DENOISING_ENABLED else None
+        'current_filename': status.get('current_filename', '')
     }
     
     return jsonify(response)
@@ -312,13 +275,13 @@ def results():
         results_dir = os.path.join('results', session_id)
         processed_files = []
         
-        print(f"📊 Loading results from: {results_dir}")
+        print(f"Loading results from: {results_dir}")
         
         if os.path.exists(results_dir):
             for file_id in os.listdir(results_dir):
                 file_dir = os.path.join(results_dir, file_id)
                 if os.path.isdir(file_dir):
-                    print(f"📁 Processing results for file_id: {file_id}")
+                    print(f"Processing results for file_id: {file_id}")
                     
                     # Load features to get original filename
                     features_path = os.path.join(file_dir, 'features.json')
@@ -346,27 +309,21 @@ def results():
                             'filename': original_filename,
                             'file_id': file_id,
                             'spectrograms': spectrograms,
-                            'features_count': len(features),
-                            'denoising_applied': features.get('denoising_applied', False),
-                            'denoising_method': features.get('denoising_method', 'None'),
-                            'noise_threshold_db': features.get('noise_threshold_db', 'N/A')
+                            'features_count': len(features)
                         })
                         
-                        print(f"✅ Added processed file: {original_filename} with {len(spectrograms)} spectrograms")
+                        print(f"Added processed file: {original_filename} with {len(spectrograms)} spectrograms")
         
-        print(f"📈 Total processed files: {len(processed_files)}")
+        print(f"Total processed files: {len(processed_files)}")
         
         return render_template('batch_results.html',
                              processed_files=processed_files,
                              total_files=len(processed_files),
-                             session_id=session_id,
-                             denoising_enabled=DENOISING_ENABLED,
-                             denoising_method=DENOISING_METHOD,
-                             noise_threshold_db=NOISE_THRESHOLD_DB)
+                             session_id=session_id)
     
     except Exception as e:
         app.logger.error(f"Results error: {str(e)}")
-        print(f"❌ Results error: {str(e)}")
+        print(f"Results error: {str(e)}")
         return render_template('index.html', 
                              error=f"Error loading results: {str(e)}",
                              max_files=MAX_FILES_PER_SESSION)
@@ -381,7 +338,7 @@ def serve_result_file(session_id, file_id, filename):
         results_dir = os.path.join(os.getcwd(), 'results', session_id, file_id)
         
         if not os.path.exists(os.path.join(results_dir, filename)):
-            print(f"❌ File not found: {os.path.join(results_dir, filename)}")
+            print(f"File not found: {os.path.join(results_dir, filename)}")
             return "File not found", 404
         
         return send_from_directory(results_dir, filename)
@@ -468,7 +425,7 @@ def download_spectrograms_zip():
         return send_file(zip_path,
                         mimetype='application/zip',
                         as_attachment=True,
-                        download_name=f'spectrograms_denoised_{session_id[:8]}.zip')
+                        download_name=f'spectrograms_{session_id[:8]}.zip')
     
     except Exception as e:
         app.logger.error(f"Error creating ZIP download: {str(e)}")
@@ -484,22 +441,9 @@ def clear_results():
         with batch_lock:
             if session_id in batch_status:
                 del batch_status[session_id]
-        
-        print(f"🗑️ Cleared session: {session_id}")
     
     session.clear()
     return redirect(url_for('index'))
-
-@app.route('/config')
-def show_config():
-    """Show current denoising configuration (for debugging)."""
-    return jsonify({
-        'denoising_enabled': DENOISING_ENABLED,
-        'denoising_method': DENOISING_METHOD,
-        'noise_threshold_db': NOISE_THRESHOLD_DB,
-        'max_files_per_session': MAX_FILES_PER_SESSION,
-        'allowed_extensions': list(ALLOWED_EXTENSIONS)
-    })
 
 @app.errorhandler(404)
 def not_found(error):
@@ -515,14 +459,5 @@ def internal_error(error):
                          max_files=MAX_FILES_PER_SESSION), 500
 
 if __name__ == '__main__':
-    print("🎵 Motor Fault Detection App Starting...")
-    print("🔧 Features: Batch processing, Audio denoising, 6 spectrograms, Feature extraction")
-    print("🌐 Access at: http://127.0.0.1:5000")
-    print("📊 Upload limit: 100 files per session, 100MB per file")
-    print(f"🎯 Audio denoising: {'Enabled' if DENOISING_ENABLED else 'Disabled'}")
-    if DENOISING_ENABLED:
-        print(f"🔧 Denoising method: {DENOISING_METHOD}")
-        print(f"📉 Noise threshold: {NOISE_THRESHOLD_DB} dB")
-    print("=" * 60)
-    
     app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
+    
